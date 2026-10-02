@@ -1,0 +1,13 @@
+{
+  "name": "se-question-finder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Search the technical questions clients asked SEs, and reuse the reference answers.",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "query": "node bin/query.mjs",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SE Question Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>SE Question Finder</h1>
+      <p class="sub">Search the technical questions clients have asked, see how they were answered, and reuse the reference answers.</p>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="importBtn" type="button">Import</button>
+      <div class="menu">
+        <button class="btn ghost" id="exportBtn" type="button" aria-haspopup="true" aria-expanded="false">Export</button>
+        <div class="menu-list" id="exportMenu" hidden>
+          <button type="button" data-export="csv">Results as CSV</button>
+          <button type="button" data-export="json-results">Results as JSON</button>
+          <button type="button" data-export="json-all">Full dataset as JSON</button>
+        </div>
+      </div>
+      <button class="btn" id="addBtn" type="button">Add a question</button>
+      <input type="file" id="importFile" accept=".json,.csv,application/json,text/csv" hidden>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="stats" id="stats" aria-label="Summary"></section>
+
+  <section class="panel query" aria-label="Query">
+    <div class="qrow">
+      <input type="search" id="q" autocomplete="off" spellcheck="false"
+        placeholder='Try: sso okta   ·   status:deferred topic:security   ·   "data refresh" after:90d'
+        aria-describedby="qhelp">
+      <select id="sort" aria-label="Sort">
+        <option value="relevance">Best match</option>
+        <option value="date">Newest</option>
+        <option value="date-asc">Oldest</option>
+        <option value="account">Account A–Z</option>
+        <option value="status">Status</option>
+      </select>
+      <button class="btn ghost" id="helpBtn" type="button" aria-expanded="false" aria-controls="help">Syntax</button>
+    </div>
+    <div class="chips" id="examples" aria-label="Example queries"></div>
+    <div class="warn" id="warnings" hidden></div>
+    <div class="help" id="help" hidden>
+      <div class="help-grid">
+        <div><code>sso okta</code><span>Words, ranked by relevance. Matches prefixes (<code>encrypt</code> → encryption) and common synonyms (<code>sso</code> → SAML, Okta).</span></div>
+        <div><code>"data refresh"</code><span>Exact phrase</span></div>
+        <div><code>-mobile</code> <code>-status:answered</code><span>Exclude a word, phrase or filter</span></div>
+        <div><code>account:acme</code><span>Field contains a value. Also <code>topic:</code> <code>product:</code> <code>status:</code> <code>by:</code> <code>asker:</code> <code>role:</code> <code>source:</code></span></div>
+        <div><code>status:partial,deferred</code><span>Comma = any of these values</span></div>
+        <div><code>after:2026-05-01</code> <code>before:2026-07</code> <code>after:30d</code><span>Date range. Relative: <code>d</code>, <code>w</code>, <code>m</code>, <code>y</code></span></div>
+        <div><code>has:answer</code> <code>has:link</code> <code>has:note</code><span>Has a reference answer, a call link, or a note</span></div>
+        <div><code>is:gap</code> <code>is:pe</code> <code>is:deferred</code><span>Training gap (not fully answered, or needed product/eng). <code>is:pe</code> = answered by product/eng</span></div>
+      </div>
+      <p class="muted">Shortcuts: <kbd>/</kbd> focuses search, <kbd>↑</kbd> <kbd>↓</kbd> move through results, <kbd>Esc</kbd> closes the detail panel. The address bar keeps your query, so you can share a link to a search.</p>
+    </div>
+  </section>
+
+  <details class="panel gaps">
+    <summary><h2>Where the gaps are, by topic</h2></summary>
+    <div class="bars" id="bars"></div>
+    <div class="legend">
+      <span><i style="background:var(--ok)"></i>Answered by SE/AE</span>
+      <span><i style="background:var(--accent)"></i>Needed product/eng</span>
+      <span><i style="background:var(--warn)"></i>Partial</span>
+      <span><i style="background:var(--bad)"></i>Deferred</span>
+    </div>
+  </details>
+
+  <div class="main" id="main">
+    <aside class="facets" id="facets" aria-label="Refine"></aside>
+    <section class="results">
+      <div class="resbar"><span class="count" id="count"></span><span class="muted" id="partial" hidden>No question matched every word, so these match some of them.</span></div>
+      <div class="tablebox">
+        <table>
+          <thead><tr>
+            <th>Question</th><th>Account</th><th>Answered by</th><th>Status</th><th>Date</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty" hidden>Loading questions…</div>
+      </div>
+    </section>
+    <aside class="detail" id="detail" hidden></aside>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <form class="form" id="addForm">
+    <h3>Add a question</h3>
+    <label>Question, in the client's words<textarea id="nQ" required rows="3"></textarea></label>
+    <div class="similar-hint" id="nSimilar" hidden></div>
+    <div class="two">
+      <label>Account<input id="nAcct" required list="acctList"></label>
+      <label>Asked by<input id="nAsker"></label>
+    </div>
+    <div class="two">
+      <label>Topic<select id="nCat"></select></label>
+      <label>Product<select id="nProd"></select></label>
+    </div>
+    <div class="two">
+      <label>Answered by<input id="nBy" placeholder="e.g. Jane Doe (SE)"></label>
+      <label>Status<select id="nStatus"><option>Answered</option><option>Partial</option><option>Deferred</option></select></label>
+    </div>
+    <div class="two">
+      <label>Date<input id="nDate" type="date"></label>
+      <label>Gong call link<input id="nUrl" type="url" placeholder="https://…gong.io/call?id=…"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="nPE"> Product or engineering had to step in</label>
+    <div class="row end">
+      <button class="btn ghost" type="button" id="cancelAdd">Cancel</button>
+      <button class="btn" type="submit">Save question</button>
+    </div>
+  </form>
+</div>
+<datalist id="acctList"></datalist>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
